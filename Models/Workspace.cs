@@ -20,8 +20,5 @@ public class Workspace
     public int Id { get; set; }
     public bool IsActive { get; set; } = true;
     public RoomType RoomType { get; set; } = RoomType.Small;
-    public List<DateTime>? CreatedAt { get; set; } = [];
-    public List<DateTime>? DuringDate { get; set; } = [];
-    public string Status {get; set;} = "UnAcеive";
-
+    public int MaxCapacity { get; set; } = 4;
 }

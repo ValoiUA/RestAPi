@@ -1,27 +1,28 @@
 namespace MyTodoApi.Models;
-using MyTodoApi.DTO;
 using FluentValidation;
+using MyTodoApi.DTO;
 
-public class BookingValidator: AbstractValidator<BookingDTO>
+public class CreateBookingValidator : AbstractValidator<CreateBookingDTO>
 {
-    public BookingValidator()
+    public CreateBookingValidator()
     {
-        RuleFor(x => x.BookingDate)
-            .NotNull().WithMessage("BookingDate is required.")
-            .GreaterThanOrEqualTo(DateTime.Now).WithMessage("BookingDate must be in the future.");
-
-        RuleFor(x => x.TimeBooking)
-            .InclusiveBetween(60, 360).WithMessage("TimeBooking must be between 60 and 360 minutes.");
-        RuleFor(x => x.TimeBooking).Must(time => time % 30 == 0).WithMessage("TimeBooking must be a multiple of 30 minutes.");
+        RuleFor(x => x.WorkspaceId)
+            .GreaterThan(0).WithMessage("Ідентифікатор робочої зони обов'язковий.");
 
         RuleFor(x => x.ResidentName)
-            .NotEmpty().WithMessage("ResidentName is required.")
-            .MaximumLength(50).WithMessage("ResidentName cannot exceed 100 characters.");
-         RuleFor(x => x.ResidentSurName)
-            .NotEmpty().WithMessage("ResidentSurName is required.")
-            .MaximumLength(50).WithMessage("ResidentSurName cannot exceed 100 characters.");
+            .NotEmpty().WithMessage("Ім'я резидента обов'язкове.");
 
-        RuleFor(x => x.ResidentMaxCount)
-            .InclusiveBetween(1, 15).WithMessage("ResidentMaxCount must be between 1 and 15.");
+        RuleFor(x => x.ResidentSurName)
+            .NotEmpty().WithMessage("Прізвище резидента обов'язкове.");
+
+        RuleFor(x => x.BookingDate)
+            .GreaterThan(DateTime.Now).WithMessage("Час початку має бути в майбутньому.");
+
+        RuleFor(x => x.DurationMinutes)
+            .GreaterThanOrEqualTo(60).WithMessage("Тривалість має бути не менше 1 години (60 хвилин).")
+            .Must(m => m % 30 == 0).WithMessage("Тривалість має бути кратна 30 хвилинам.");
+
+        RuleFor(x => x.ResidentCount)
+            .GreaterThan(0).WithMessage("Кількість учасників повинна бути більше 0.");
     }
 }

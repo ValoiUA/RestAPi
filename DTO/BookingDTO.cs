@@ -1,9 +1,10 @@
 namespace MyTodoApi.Models;
 
-public record BookingDTO(
+public record CreateBookingDTO(
+    int WorkspaceId,
+    string ResidentName,
+    string ResidentSurName,
     DateTime BookingDate,
-    int TimeBooking,
-    string? ResidentName,
-    string? ResidentSurName,
-    int ResidentMaxCount
+    int DurationMinutes,
+    int ResidentCount
 );

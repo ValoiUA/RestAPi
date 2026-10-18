@@ -11,6 +11,8 @@ public class WorkspaceValidator: AbstractValidator<WorkspaceDTO>
 
         RuleFor(x => x.RoomType)
             .IsInEnum().WithMessage("Invalid room type.");
+        
+        RuleFor(x => x.Status).IsInEnum().WithMessage("Invalid status type");
 
     }
 }
