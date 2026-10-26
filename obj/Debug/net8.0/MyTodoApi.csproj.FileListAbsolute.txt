@@ -36,3 +36,9 @@ C:\Vlad\МІА\RestApi\MyTodoApi\bin\Debug\net8.0\FluentValidation.dll
 C:\Vlad\МІА\RestApi\MyTodoApi\bin\Debug\net8.0\booking.json
 C:\Vlad\МІА\RestApi\MyTodoApi\bin\Debug\net8.0\residents.json
 C:\Vlad\МІА\RestApi\MyTodoApi\bin\Debug\net8.0\workspace.json
+C:\Vlad\МІА\RestApi\MyTodoApi\bin\Debug\net8.0\DnsClient.dll
+C:\Vlad\МІА\RestApi\MyTodoApi\bin\Debug\net8.0\MongoDB.Bson.dll
+C:\Vlad\МІА\RestApi\MyTodoApi\bin\Debug\net8.0\MongoDB.Driver.dll
+C:\Vlad\МІА\RestApi\MyTodoApi\bin\Debug\net8.0\SharpCompress.dll
+C:\Vlad\МІА\RestApi\MyTodoApi\bin\Debug\net8.0\Snappier.dll
+C:\Vlad\МІА\RestApi\MyTodoApi\bin\Debug\net8.0\ZstdSharp.dll

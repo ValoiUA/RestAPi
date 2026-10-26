@@ -1,3 +1,5 @@
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 namespace MyTodoApi.Models;
 public enum ResidentType
 {
@@ -7,8 +9,17 @@ public enum ResidentType
 }
 public class Resident
 {
-    public int Id { get; set; }
+    [BsonId]
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string? Id { get; set; }
+
+    [BsonElement("name")]
     public string Name { get; set; } = string.Empty;
+
+    [BsonElement("surname")]
     public string SurName { get; set; } = string.Empty;
-    public ResidentType Type { get; set; } = ResidentType.Regular;
+
+    [BsonElement("type")]
+    [BsonRepresentation(BsonType.String)]
+    public ResidentType? Type { get; set; } = null;
 }

@@ -23,5 +23,6 @@ public class BookingValidator: AbstractValidator<BookingDTO>
 
         RuleFor(x => x.ResidentMaxCount)
             .InclusiveBetween(1, 15).WithMessage("ResidentMaxCount must be between 1 and 15.");
+        
     }
 }
