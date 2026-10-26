@@ -6,23 +6,38 @@ public class BookingSyncService
 {
     private readonly IBookingRepository _bookingRepository;
     private readonly IWorkspaceRepository _workspaceRepository;
+    private readonly ILogger<BookingSyncService> _logger;
 
-    public BookingSyncService(IBookingRepository bookingRepository, IWorkspaceRepository workspaceRepository)
+    public BookingSyncService(
+        IBookingRepository bookingRepository,
+        IWorkspaceRepository workspaceRepository,
+        ILogger<BookingSyncService> logger)
     {
         _bookingRepository = bookingRepository;
         _workspaceRepository = workspaceRepository;
+        _logger = logger;
     }
 
     public async Task CleanupExpiredBookingsAsync()
     {
-        var now = DateTime.UtcNow;
+        _logger.LogInformation("Початок синхронізації та очищення прострочених бронювань...");
+
+        var nowUtc = DateTime.UtcNow;
         var allBookings = await _bookingRepository.GetAllAsync();
         var allWorkspaces = await _workspaceRepository.GetAllAsync();
 
-      
         var expiredBookings = allBookings
-            .Where(b => b.BookingDate.AddMinutes(b.TimeBooking) <= now)
+            .Where(b => 
+            {
+                var bookingUtc = b.BookingDate.Kind == DateTimeKind.Unspecified 
+                    ? DateTime.SpecifyKind(b.BookingDate, DateTimeKind.Utc) 
+                    : b.BookingDate.ToUniversalTime();
+
+                return bookingUtc.AddMinutes(b.TimeBooking) <= nowUtc;
+            })
             .ToList();
+
+        _logger.LogInformation("Знайдено прострочених бронювань: {Count}", expiredBookings.Count);
 
         foreach (var booking in expiredBookings)
         {
@@ -30,6 +45,7 @@ public class BookingSyncService
             if (workspace is not null)
             {
                 var bookingEnd = booking.BookingDate.AddMinutes(booking.TimeBooking);
+
                 workspace.CreatedAt?.RemoveAll(d => d == booking.BookingDate);
                 workspace.DuringDate?.RemoveAll(d => d == bookingEnd);
 
@@ -37,16 +53,21 @@ public class BookingSyncService
             }
 
             await _bookingRepository.DeleteAsync(booking.Id!);
+            _logger.LogInformation("Видалено прострочене бронювання ID: {Id}", booking.Id);
         }
 
         foreach (var ws in allWorkspaces)
         {
             bool modified = false;
-            if (ws.DuringDate is not null && ws.DuringDate.Any(d => d <= now))
+            if (ws.DuringDate is not null && ws.DuringDate.Count > 0)
             {
                 for (int i = ws.DuringDate.Count - 1; i >= 0; i--)
                 {
-                    if (ws.DuringDate[i] <= now)
+                    var dateUtc = ws.DuringDate[i].Kind == DateTimeKind.Unspecified 
+                        ? DateTime.SpecifyKind(ws.DuringDate[i], DateTimeKind.Utc) 
+                        : ws.DuringDate[i].ToUniversalTime();
+
+                    if (dateUtc <= nowUtc)
                     {
                         ws.DuringDate.RemoveAt(i);
                         if (ws.CreatedAt is not null && ws.CreatedAt.Count > i)
@@ -63,5 +84,7 @@ public class BookingSyncService
                 await _workspaceRepository.UpdateAsync(ws.Id!, ws);
             }
         }
+
+        _logger.LogInformation("Синхронізацію успішно завершено.");
     }
 }

@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using MyTodoApi.DTO;
 using MyTodoApi.Models;
 using MyTodoApi.Repositories;
+using AutoMapper;
+using MyTodoApi.Mappings;
 
 namespace MyTodoApi.Controllers;
 
@@ -13,11 +15,13 @@ public class ResidentsController : ControllerBase
 {
     private readonly IResidentRepository _residentRepository;
     private readonly IValidator<ResidentDTO> _validator;
+    private readonly IMapper _mapper;
 
-    public ResidentsController(IResidentRepository residentRepository, IValidator<ResidentDTO> validator)
+    public ResidentsController(IResidentRepository residentRepository, IValidator<ResidentDTO> validator, IMapper mapper)
     {
         _residentRepository = residentRepository;
         _validator = validator;
+        _mapper = mapper;  
     }
 
     [HttpGet]
@@ -37,6 +41,7 @@ public class ResidentsController : ControllerBase
         {
             return NotFound(new { Message = $"Резидента з ID {id} не знайдено." });
         }
+        
         return Ok(resident);
     }
 
@@ -50,12 +55,7 @@ public class ResidentsController : ControllerBase
             return BadRequest(result.Errors.Select(e => e.ErrorMessage));
         }
 
-        var resident = new Resident
-        {
-            Name = newResidentDto.Name,
-            SurName = newResidentDto.SurName,
-            Type = newResidentDto.Type
-        };
+        var resident = _mapper.Map<Resident>(newResidentDto);
 
         await _residentRepository.CreateAsync(resident);
         return CreatedAtAction(nameof(GetById), new { id = resident.Id }, resident);
@@ -89,9 +89,7 @@ public class ResidentsController : ControllerBase
             return NotFound(new { Message = $"Резидента з ID {id} не знайдено." });
         }
 
-        existingResident.Name = updateDTO.Name;
-        existingResident.SurName = updateDTO.SurName;
-        existingResident.Type = updateDTO.Type;
+        _mapper.Map(updateDTO, existingResident);
 
         var isUpdated = await _residentRepository.UpdateAsync(id, existingResident);
         return isUpdated ? Ok(existingResident) : StatusCode(500, "Помилка оновлення даних.");
@@ -107,14 +105,7 @@ public class ResidentsController : ControllerBase
             return NotFound(new { Message = $"Резидента з ID {id} не знайдено." });
         }
 
-        if (!string.IsNullOrWhiteSpace(updateDTO.Name)) 
-            existingResident.Name = updateDTO.Name;
-
-        if (!string.IsNullOrWhiteSpace(updateDTO.SurName)) 
-            existingResident.SurName = updateDTO.SurName;
-
-        if (updateDTO.Type.HasValue) 
-            existingResident.Type = updateDTO.Type.Value;
+        _mapper.Map(updateDTO, existingResident);
 
         var isUpdated = await _residentRepository.UpdateAsync(id, existingResident);
         return isUpdated ? Ok(existingResident) : StatusCode(500, "Помилка оновлення даних.");

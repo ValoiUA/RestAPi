@@ -1,3 +1,4 @@
+using AutoMapper;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using MyTodoApi.DTO;
@@ -15,17 +16,20 @@ public class BookingController : ControllerBase
     private readonly IWorkspaceRepository _workspaceRepository;
     private readonly IResidentRepository _residentRepository;
     private readonly IValidator<BookingDTO> _validator;
+    private readonly IMapper _mapper;
 
     public BookingController(
         IBookingRepository bookingRepository,
         IWorkspaceRepository workspaceRepository,
         IResidentRepository residentRepository,
-        IValidator<BookingDTO> validator)
+        IValidator<BookingDTO> validator,
+        IMapper mapper)
     {
         _bookingRepository = bookingRepository;
         _workspaceRepository = workspaceRepository;
         _residentRepository = residentRepository;
         _validator = validator;
+        _mapper = mapper;
     }
 
     [HttpGet]
@@ -37,15 +41,17 @@ public class BookingController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    [EndpointSummary("Отримати бронювання по ID")]
+    [EndpointSummary("Отримати бронювання за ID")]
     public async Task<IActionResult> GetById(string id)
     {
         var booking = await _bookingRepository.GetByIdAsync(id);
-        return booking is not null ? Ok(booking) : NotFound(new { Message = $"Бронювання з ID {id} не знайдено." });
+        return booking is not null 
+            ? Ok(booking) 
+            : NotFound(new { Message = $"Бронювання з ID {id} не знайдено." });
     }
 
     [HttpPost]
-    [EndpointSummary("Додати бронювання")]
+    [EndpointSummary("Додати нове бронювання")]
     public async Task<IActionResult> Create([FromBody] BookingDTO newBookingDto)
     {
         var validationResult = await _validator.ValidateAsync(newBookingDto);
@@ -70,7 +76,9 @@ public class BookingController : ControllerBase
         var availableWorkspace = workspaces.FirstOrDefault(w =>
             w.IsActive &&
             w.RoomType == roomTypeResult.Type &&
-            !bookings.Any(b => b.WorkspaceId == w.Id && newStart < b.BookingDate.AddMinutes(b.TimeBooking) && newEnd > b.BookingDate));
+            !bookings.Any(b => b.WorkspaceId == w.Id && 
+                               newStart < b.BookingDate.AddMinutes(b.TimeBooking) && 
+                               newEnd > b.BookingDate));
 
         if (availableWorkspace is null)
         {
@@ -85,16 +93,9 @@ public class BookingController : ControllerBase
             newBookingDto.ResidentMaxCount,
             residents);
 
-        var newBooking = new Booking
-        {
-            BookingDate = newBookingDto.BookingDate,
-            TimeBooking = newBookingDto.TimeBooking,
-            ResidentName = newBookingDto.ResidentName,
-            ResidentSurName = newBookingDto.ResidentSurName,
-            ResidentMaxCount = newBookingDto.ResidentMaxCount,
-            WorkspaceId = availableWorkspace.Id!,
-            TotalPrice = finalPrice
-        };
+        var newBooking = _mapper.Map<Booking>(newBookingDto);
+        newBooking.WorkspaceId = availableWorkspace.Id!;
+        newBooking.TotalPrice = finalPrice;
 
         await _bookingRepository.CreateAsync(newBooking);
 
@@ -139,7 +140,10 @@ public class BookingController : ControllerBase
         var suitableWorkspace = workspaces.FirstOrDefault(w =>
             w.IsActive &&
             w.RoomType == roomTypeResult.Type &&
-            !bookings.Any(b => b.Id != id && b.WorkspaceId == w.Id && newStart < b.BookingDate.AddMinutes(b.TimeBooking) && newEnd > b.BookingDate));
+            !bookings.Any(b => b.Id != id && 
+                               b.WorkspaceId == w.Id && 
+                               newStart < b.BookingDate.AddMinutes(b.TimeBooking) && 
+                               newEnd > b.BookingDate));
 
         if (suitableWorkspace is null)
         {
@@ -154,7 +158,6 @@ public class BookingController : ControllerBase
             oldWorkspace.DuringDate?.RemoveAll(d => d == oldEnd);
             await _workspaceRepository.UpdateAsync(oldWorkspace.Id!, oldWorkspace);
         }
-
         var targetWorkspace = (oldWorkspace?.Id == suitableWorkspace.Id) ? oldWorkspace : suitableWorkspace;
         targetWorkspace.CreatedAt ??= [];
         targetWorkspace.DuringDate ??= [];
@@ -170,11 +173,7 @@ public class BookingController : ControllerBase
             updateDto.ResidentMaxCount,
             residents);
 
-        bookingToUpdate.BookingDate = updateDto.BookingDate;
-        bookingToUpdate.TimeBooking = updateDto.TimeBooking;
-        bookingToUpdate.ResidentName = updateDto.ResidentName;
-        bookingToUpdate.ResidentSurName = updateDto.ResidentSurName;
-        bookingToUpdate.ResidentMaxCount = updateDto.ResidentMaxCount;
+        _mapper.Map(updateDto, bookingToUpdate);
         bookingToUpdate.WorkspaceId = targetWorkspace.Id!;
         bookingToUpdate.TotalPrice = finalPrice;
 
@@ -224,7 +223,10 @@ public class BookingController : ControllerBase
         var suitableWorkspace = workspaces.FirstOrDefault(w =>
             w.IsActive &&
             w.RoomType == roomTypeResult.Type &&
-            !bookings.Any(b => b.Id != id && b.WorkspaceId == w.Id && newStart < b.BookingDate.AddMinutes(b.TimeBooking) && newEnd > b.BookingDate));
+            !bookings.Any(b => b.Id != id && 
+                               b.WorkspaceId == w.Id && 
+                               newStart < b.BookingDate.AddMinutes(b.TimeBooking) && 
+                               newEnd > b.BookingDate));
 
         if (suitableWorkspace is null)
         {
@@ -249,11 +251,7 @@ public class BookingController : ControllerBase
 
         decimal finalPrice = CalculatePrice(targetTime, targetWorkspace.RoomType, targetName, targetSurName, targetCount, residents);
 
-        bookingToUpdate.BookingDate = targetDate;
-        bookingToUpdate.TimeBooking = targetTime;
-        bookingToUpdate.ResidentMaxCount = targetCount;
-        bookingToUpdate.ResidentName = targetName;
-        bookingToUpdate.ResidentSurName = targetSurName;
+        _mapper.Map(patchDto, bookingToUpdate);
         bookingToUpdate.WorkspaceId = targetWorkspace.Id!;
         bookingToUpdate.TotalPrice = finalPrice;
 
@@ -262,7 +260,7 @@ public class BookingController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [EndpointSummary("Видалити бронювання по ID")]
+    [EndpointSummary("Видалити бронювання за ID")]
     public async Task<IActionResult> DeleteById(string id)
     {
         var bookingToDelete = await _bookingRepository.GetByIdAsync(id);
@@ -304,7 +302,7 @@ public class BookingController : ControllerBase
     }
 
     [HttpDelete("{surname},{name}")]
-    [EndpointSummary("Видалити бронювання по прізвищу та імені")]
+    [EndpointSummary("Видалити бронювання за прізвищем та ім'ям")]
     public async Task<IActionResult> DeleteByName(string surname, string name)
     {
         var bookings = await _bookingRepository.FindAsync(b =>
@@ -349,7 +347,6 @@ public class BookingController : ControllerBase
         return Ok(new { Status = "Deleted", Id = bookingToDelete.Id, ReturnMoney = returnMoney });
     }
 
-   
     private static (bool Success, RoomType Type, string Error) GetRequiredRoomType(int count)
     {
         if (count > 1 && count <= 4) return (true, RoomType.Small, string.Empty);

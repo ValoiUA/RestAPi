@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MyTodoApi.DTO;
 using MyTodoApi.Models;
+using AutoMapper;
 using MyTodoApi.Repositories;
 
 namespace MyTodoApi.Controllers;
@@ -14,13 +15,16 @@ public class WorkspacesController : ControllerBase
 {
     private readonly IWorkspaceRepository _workspaceRepository;
     private readonly IValidator<WorkspaceDTO> _validator;
+    private readonly IMapper _mapper;
 
     public WorkspacesController(
         IWorkspaceRepository workspaceRepository,
-        IValidator<WorkspaceDTO> validator)
+        IValidator<WorkspaceDTO> validator,
+        IMapper imapper)
     {
         _workspaceRepository = workspaceRepository;
         _validator = validator;
+        _mapper = imapper;
     }
 
     [HttpGet]
@@ -56,13 +60,7 @@ public class WorkspacesController : ControllerBase
             return BadRequest(result.Errors.Select(e => e.ErrorMessage));
         }
 
-        var newWorkspace = new Workspace
-        {
-            IsActive = dto.IsActive ?? true,
-            RoomType = dto.RoomType ?? RoomType.Small,
-            CreatedAt = dto.CreatedAt ?? [],
-            DuringDate = dto.DuringDate ?? []
-        };
+        var newWorkspace = _mapper.Map<Workspace>(dto);
 
         await _workspaceRepository.CreateAsync(newWorkspace);
 
@@ -108,10 +106,7 @@ public class WorkspacesController : ControllerBase
             return NotFound(new { Message = $"Робочу зону з ID {id} не знайдено." });
         }
 
-        workspaceToPut.IsActive = updateDTO.IsActive ?? true;
-        workspaceToPut.RoomType = updateDTO.RoomType ?? RoomType.Small;
-        workspaceToPut.CreatedAt = updateDTO.CreatedAt ?? [];
-        workspaceToPut.DuringDate = updateDTO.DuringDate ?? [];
+        _mapper.Map(updateDTO, workspaceToPut);
 
         var isUpdated = await _workspaceRepository.UpdateAsync(id, workspaceToPut);
         if (!isUpdated)
@@ -132,20 +127,7 @@ public class WorkspacesController : ControllerBase
         }
 
         var workspaceToPatch = await _workspaceRepository.GetByIdAsync(id);
-        if (workspaceToPatch is null)
-        {
-            return NotFound(new { Message = $"Робочу зону з ID {id} не знайдено." });
-        }
-
-        if (dto.IsActive.HasValue)
-        {
-            workspaceToPatch.IsActive = dto.IsActive.Value;
-        }
-
-        if (dto.RoomType.HasValue)
-        {
-            workspaceToPatch.RoomType = dto.RoomType.Value;
-        }
+        _mapper.Map(dto, workspaceToPatch);
 
         var isUpdated = await _workspaceRepository.UpdateAsync(id, workspaceToPatch);
         if (!isUpdated)

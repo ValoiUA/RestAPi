@@ -1,5 +1,6 @@
-using System.Linq.Expressions;
+using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Linq.Expressions;
 
 namespace MyTodoApi.Repositories;
 
@@ -17,7 +18,12 @@ public class MongoRepository<T> : IRepository<T> where T : class
 
     public async Task<T?> GetByIdAsync(string id)
     {
-        var filter = Builders<T>.Filter.Eq("_id", MongoDB.Bson.ObjectId.Parse(id));
+        if (!ObjectId.TryParse(id, out var objectId))
+        {
+            return null;
+        }
+
+        var filter = Builders<T>.Filter.Eq("_id", objectId);
         return await _collection.Find(filter).FirstOrDefaultAsync();
     }
 
@@ -29,14 +35,24 @@ public class MongoRepository<T> : IRepository<T> where T : class
 
     public async Task<bool> UpdateAsync(string id, T entity)
     {
-        var filter = Builders<T>.Filter.Eq("_id", MongoDB.Bson.ObjectId.Parse(id));
+        if (!ObjectId.TryParse(id, out var objectId))
+        {
+            return false;
+        }
+
+        var filter = Builders<T>.Filter.Eq("_id", objectId);
         var result = await _collection.ReplaceOneAsync(filter, entity);
         return result.ModifiedCount > 0;
     }
 
     public async Task<bool> DeleteAsync(string id)
     {
-        var filter = Builders<T>.Filter.Eq("_id", MongoDB.Bson.ObjectId.Parse(id));
+        if (!ObjectId.TryParse(id, out var objectId))
+        {
+            return false;
+        }
+
+        var filter = Builders<T>.Filter.Eq("_id", objectId);
         var result = await _collection.DeleteOneAsync(filter);
         return result.DeletedCount > 0;
     }
