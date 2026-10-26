@@ -1,23 +1,24 @@
 import React, { useState, useEffect } from "react";
 import api from "./api";
 
-function App() {
+export default function App() {
   const [token, setToken] = useState(localStorage.getItem("accessToken"));
   const [activeTab, setActiveTab] = useState("bookings");
   const [statusMsg, setStatusMsg] = useState({ type: "", text: "" });
 
-  // Стан для авторизації
+  // Стан авторизації
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authRole, setAuthRole] = useState("User");
 
-  // Дані з бекенду
+  // Дані з API
   const [workspaces, setWorkspaces] = useState([]);
   const [residents, setResidents] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  // Форми створення
+  // Стан форм
   const [newWorkspace, setNewWorkspace] = useState({
     roomType: "Small",
     isActive: true,
@@ -40,7 +41,6 @@ function App() {
     setTimeout(() => setStatusMsg({ type: "", text: "" }), 4000);
   };
 
-  // ------------------ АВТОРИЗАЦІЯ ------------------
   const handleAuth = async (e) => {
     e.preventDefault();
     try {
@@ -50,7 +50,7 @@ function App() {
           password: authPassword,
           role: authRole,
         });
-        showMsg("Успішно зареєстровано! Тепер увійдіть.");
+        showMsg("Акаунт успішно зареєстровано! Увійдіть у систему.");
         setIsRegisterMode(false);
       } else {
         const res = await api.post("/auth/login", {
@@ -60,10 +60,10 @@ function App() {
         localStorage.setItem("accessToken", res.data.accessToken);
         localStorage.setItem("refreshToken", res.data.refreshToken);
         setToken(res.data.accessToken);
-        showMsg("Успішний вхід!");
+        showMsg("Раді бачити вас знову!");
       }
     } catch (err) {
-      showMsg(err.response?.data?.message || "Помилка авторизації", "error");
+      showMsg(err.response?.data?.message || "Помилка автентифікації", "error");
     }
   };
 
@@ -72,8 +72,8 @@ function App() {
     setToken(null);
   };
 
-  // ------------------ ЗАВАНТАЖЕННЯ ДАНИХ ------------------
   const loadAllData = async () => {
+    setLoading(true);
     try {
       const [wsRes, resRes, bRes] = await Promise.all([
         api.get("/workspaces"),
@@ -87,89 +87,84 @@ function App() {
       if (err.response?.status === 401) {
         handleLogout();
       } else {
-        showMsg("Помилка при завантаженні даних з сервера", "error");
+        showMsg("Не вдалося завантажити актуальні дані", "error");
       }
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (token) {
-      loadAllData();
-    }
+    if (token) loadAllData();
   }, [token]);
 
-  // ------------------ РОБОЧІ ЗОНИ (WORKSPACES) ------------------
+  // Робочі зони
   const handleCreateWorkspace = async (e) => {
     e.preventDefault();
     try {
       await api.post("/workspaces", {
-        roomType: newWorkspace.roomType,
-        isActive: newWorkspace.isActive,
+        ...newWorkspace,
         createdAt: [],
         duringDate: [],
       });
-      showMsg("Робочу зону успішно додано!");
+      showMsg("Робочу зону додано!");
       loadAllData();
     } catch (err) {
       showMsg(
         err.response?.data?.message ||
-          err.response?.data ||
-          "Помилка створення зони (потрібна роль Admin)",
+          "Потрібні права Admin для створення зони",
         "error",
       );
     }
   };
 
   const handleDeleteWorkspace = async (id) => {
-    if (!window.confirm("Видалити цю кімнату?")) return;
+    if (!window.confirm("Ви дійсно хочете видалити цю зону?")) return;
     try {
       await api.delete(`/workspaces/${id}`);
-      showMsg("Кімнату видалено!");
+      showMsg("Робочу зону видалено!");
       loadAllData();
     } catch (err) {
-      showMsg("Не вдалося видалити кімнату (потрібна роль Admin)", "error");
+      showMsg("Помилка видалення (лише для Admin)", "error");
     }
   };
 
-  // ------------------ РЕЗИДЕНТИ (RESIDENTS) ------------------
+  // Резиденти
   const handleCreateResident = async (e) => {
     e.preventDefault();
     try {
       await api.post("/residents", newResident);
-      showMsg("Резидента успішно додано!");
+      showMsg("Резидента зареєстровано!");
       setNewResident({ name: "", surName: "", type: "Standard" });
       loadAllData();
     } catch (err) {
-      showMsg(
-        err.response?.data?.message || "Помилка при додаванні резидента",
-        "error",
-      );
+      showMsg("Помилка реєстрації резидента", "error");
     }
   };
 
   const handleDeleteResident = async (id) => {
-    if (!window.confirm("Видалити цього резидента?")) return;
+    if (!window.confirm("Видалити дані резидента?")) return;
     try {
       await api.delete(`/residents/${id}`);
-      showMsg("Резидента видалено!");
+      showMsg("Резидента успішно видалено!");
       loadAllData();
     } catch (err) {
       showMsg("Помилка видалення резидента", "error");
     }
   };
 
-  // ------------------ БРОНЮВАННЯ (BOOKINGS) ------------------
+  // Бронювання
   const handleCreateBooking = async (e) => {
     e.preventDefault();
     try {
       await api.post("/booking", {
         bookingDate: new Date(newBooking.bookingDate).toISOString(),
-        timeBooking: parseInt(newBooking.timeBooking),
+        timeBooking: parseInt(newBooking.timeBooking, 10),
         residentName: newBooking.residentName.trim(),
         residentSurName: newBooking.residentSurName.trim(),
-        residentMaxCount: parseInt(newBooking.residentMaxCount),
+        residentMaxCount: parseInt(newBooking.residentMaxCount, 10),
       });
-      showMsg("Бронювання успішно оформлено!");
+      showMsg("Бронювання успішно зафіксовано!");
       setNewBooking({
         bookingDate: "",
         timeBooking: 60,
@@ -180,10 +175,7 @@ function App() {
       loadAllData();
     } catch (err) {
       const msg = err.response?.data?.message || err.response?.data;
-      showMsg(
-        typeof msg === "string" ? msg : "Помилка оформлення бронювання",
-        "error",
-      );
+      showMsg(typeof msg === "string" ? msg : "Помилка бронювання", "error");
     }
   };
 
@@ -192,555 +184,907 @@ function App() {
     try {
       const res = await api.delete(`/booking/${id}`);
       showMsg(
-        `Бронювання скасовано! Повернення коштів: ${res.data.returnMoney ?? 0} грн`,
+        `Бронювання скасовано! До повернення: ${res.data.returnMoney ?? 0} грн`,
       );
       loadAllData();
     } catch (err) {
       showMsg(
-        err.response?.data?.message ||
-          err.response?.data ||
-          "Не вдалося скасувати бронювання",
+        err.response?.data?.message || "Не вдалося скасувати бронювання",
         "error",
       );
     }
   };
 
-  // ------------------ ЕКРАН ВХОДУ / РЕЄСТРАЦІЇ ------------------
+  // --- ЕКРАН АВТОРИЗАЦІЇ ---
   if (!token) {
     return (
-      <div style={styles.authContainer}>
-        <div style={styles.authCard}>
-          <h2>{isRegisterMode ? "Реєстрація" : "Вхід у систему"}</h2>
+      <div style={ui.authPage}>
+        <div style={ui.authBox}>
+          <div style={ui.logoArea}>
+            <div style={ui.logoBadge}>💼</div>
+            <h1 style={ui.title}>Coworking Space</h1>
+            <p style={ui.subtitle}>Керуйте бронюванням просто та зручно</p>
+          </div>
+
           {statusMsg.text && (
             <div
               style={{
-                ...styles.alert,
-                backgroundColor:
-                  statusMsg.type === "error" ? "#f8d7da" : "#d4edda",
+                ...ui.toast,
+                ...(statusMsg.type === "error" ? ui.toastErr : ui.toastOk),
               }}
             >
               {statusMsg.text}
             </div>
           )}
-          <form onSubmit={handleAuth}>
-            <label style={styles.label}>Email:</label>
-            <input
-              type="email"
-              value={authEmail}
-              onChange={(e) => setAuthEmail(e.target.value)}
-              required
-              style={styles.input}
-            />
 
-            <label style={styles.label}>Пароль:</label>
-            <input
-              type="password"
-              value={authPassword}
-              onChange={(e) => setAuthPassword(e.target.value)}
-              required
-              style={styles.input}
-            />
+          <form
+            onSubmit={handleAuth}
+            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+          >
+            <div>
+              <label style={ui.label}>Електронна пошта</label>
+              <input
+                type="email"
+                placeholder="name@company.com"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                required
+                style={ui.input}
+              />
+            </div>
+
+            <div>
+              <label style={ui.label}>Пароль</label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                required
+                style={ui.input}
+              />
+            </div>
 
             {isRegisterMode && (
-              <>
-                <label style={styles.label}>Роль:</label>
+              <div>
+                <label style={ui.label}>Рівень доступу</label>
                 <select
                   value={authRole}
                   onChange={(e) => setAuthRole(e.target.value)}
-                  style={styles.input}
+                  style={ui.input}
                 >
-                  <option value="User">User</option>
-                  <option value="Admin">Admin</option>
+                  <option value="User">User (Клієнт)</option>
+                  <option value="Admin">Admin (Адміністратор)</option>
                 </select>
-              </>
+              </div>
             )}
 
-            <button type="submit" style={styles.primaryBtn}>
-              {isRegisterMode ? "Зареєструватися" : "Увійти"}
+            <button type="submit" style={ui.btnPrimary}>
+              {isRegisterMode ? "Зареєструватися" : "Увійти до панелі"}
             </button>
           </form>
 
-          <p style={{ marginTop: "1rem", textAlign: "center" }}>
-            <span
-              style={styles.link}
+          <div style={ui.switchMode}>
+            <span>{isRegisterMode ? "Вже маєте профіль?" : "Вперше тут?"}</span>
+            <button
+              type="button"
               onClick={() => {
                 setIsRegisterMode(!isRegisterMode);
                 setStatusMsg({ type: "", text: "" });
               }}
+              style={ui.linkBtn}
             >
-              {isRegisterMode
-                ? "Вже є акаунт? Увійти"
-                : "Немає акаунту? Зареєструватися"}
-            </span>
-          </p>
+              {isRegisterMode ? "Увійти" : "Створити акаунт"}
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // ------------------ ГОЛОВНА ПАНЕЛЬ КЕРУВАННЯ ------------------
+  // --- ГОЛОВНА СТОРІНКА DASHBOARD ---
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <h2>Панель керування коворкінгом</h2>
-        <div>
-          <button onClick={loadAllData} style={styles.secondaryBtn}>
-            Оновити дані
+    <div style={ui.layout}>
+      {/* Верхня навігаційна панель */}
+      <header style={ui.navbar}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div style={ui.logoBadgeSmall}>💼</div>
+          <div>
+            <h2 style={{ fontSize: "1.15rem", fontWeight: 700, margin: 0 }}>
+              Coworking OS
+            </h2>
+            <small style={{ color: "var(--text-muted)" }}>
+              Панель управління простором
+            </small>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <button onClick={loadAllData} style={ui.btnSecondary}>
+            {loading ? "Оновлення..." : "🔄 Оновити"}
           </button>
-          <button onClick={handleLogout} style={styles.dangerBtn}>
+          <button onClick={handleLogout} style={ui.btnDangerOutline}>
             Вийти
           </button>
         </div>
       </header>
 
+      {/* Сповіщення (Toast) */}
       {statusMsg.text && (
         <div
           style={{
-            ...styles.alert,
-            backgroundColor: statusMsg.type === "error" ? "#f8d7da" : "#d4edda",
+            ...ui.toast,
+            ...(statusMsg.type === "error" ? ui.toastErr : ui.toastOk),
           }}
         >
           {statusMsg.text}
         </div>
       )}
 
-      {/* Навігація вкладок */}
-      <div style={styles.tabBar}>
+      {/* Вкладки перемикання */}
+      <div style={ui.navTabs}>
         <button
-          style={activeTab === "bookings" ? styles.tabActive : styles.tab}
           onClick={() => setActiveTab("bookings")}
+          style={activeTab === "bookings" ? ui.navTabActive : ui.navTab}
         >
-          📅 Бронювання ({bookings.length})
+          📅 Бронювання <span style={ui.counter}>{bookings.length}</span>
         </button>
         <button
-          style={activeTab === "workspaces" ? styles.tabActive : styles.tab}
           onClick={() => setActiveTab("workspaces")}
+          style={activeTab === "workspaces" ? ui.navTabActive : ui.navTab}
         >
-          🏢 Робочі зони ({workspaces.length})
+          🏢 Робочі зони <span style={ui.counter}>{workspaces.length}</span>
         </button>
         <button
-          style={activeTab === "residents" ? styles.tabActive : styles.tab}
           onClick={() => setActiveTab("residents")}
+          style={activeTab === "residents" ? ui.navTabActive : ui.navTab}
         >
-          👥 Резиденти ({residents.length})
+          👥 Резиденти <span style={ui.counter}>{residents.length}</span>
         </button>
       </div>
 
-      {/* ВКЛАДКА 1: БРОНЮВАННЯ */}
-      {activeTab === "bookings" && (
-        <div style={styles.contentGrid}>
-          <div style={styles.card}>
-            <h3>Оформити нове бронювання</h3>
-            <form onSubmit={handleCreateBooking}>
-              <label style={styles.label}>Дата та час початку:</label>
-              <input
-                type="datetime-local"
-                value={newBooking.bookingDate}
-                onChange={(e) =>
-                  setNewBooking({ ...newBooking, bookingDate: e.target.value })
-                }
-                required
-                style={styles.input}
-              />
+      {/* КОНТЕНТ ВКЛАДОК */}
+      <main style={ui.mainGrid}>
+        {/* Вкладка 1: Бронювання */}
+        {activeTab === "bookings" && (
+          <>
+            <div style={ui.card}>
+              <h3 style={ui.cardTitle}>Створити бронювання</h3>
+              <p style={ui.cardDesc}>
+                Вільна кімната та вартість розраховуються автоматично
+              </p>
 
-              <label style={styles.label}>Тривалість (хвилин):</label>
-              <input
-                type="number"
-                min="15"
-                step="15"
-                value={newBooking.timeBooking}
-                onChange={(e) =>
-                  setNewBooking({ ...newBooking, timeBooking: e.target.value })
-                }
-                required
-                style={styles.input}
-              />
-
-              <label style={styles.label}>Ім'я резидента:</label>
-              <input
-                type="text"
-                value={newBooking.residentName}
-                onChange={(e) =>
-                  setNewBooking({ ...newBooking, residentName: e.target.value })
-                }
-                required
-                style={styles.input}
-              />
-
-              <label style={styles.label}>Прізвище резидента:</label>
-              <input
-                type="text"
-                value={newBooking.residentSurName}
-                onChange={(e) =>
-                  setNewBooking({
-                    ...newBooking,
-                    residentSurName: e.target.value,
-                  })
-                }
-                required
-                style={styles.input}
-              />
-
-              <label style={styles.label}>Кількість осіб (2 - 15):</label>
-              <input
-                type="number"
-                min="2"
-                max="15"
-                value={newBooking.residentMaxCount}
-                onChange={(e) =>
-                  setNewBooking({
-                    ...newBooking,
-                    residentMaxCount: e.target.value,
-                  })
-                }
-                required
-                style={styles.input}
-              />
-
-              <button type="submit" style={styles.primaryBtn}>
-                Забронювати
-              </button>
-            </form>
-          </div>
-
-          <div style={styles.card}>
-            <h3>Список активних бронювань</h3>
-            {bookings.length === 0 ? (
-              <p>Немає створених бронювань.</p>
-            ) : (
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Резидент</th>
-                    <th>Початок</th>
-                    <th>Час</th>
-                    <th>Осіб</th>
-                    <th>Сума</th>
-                    <th>Дії</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bookings.map((b) => (
-                    <tr key={b.id}>
-                      <td>
-                        {b.residentName} {b.residentSurName}
-                      </td>
-                      <td>{new Date(b.bookingDate).toLocaleString()}</td>
-                      <td>{b.timeBooking} хв</td>
-                      <td>{b.residentMaxCount}</td>
-                      <td>
-                        <b>{b.totalPrice} грн</b>
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => handleDeleteBooking(b.id)}
-                          style={styles.smallDangerBtn}
-                        >
-                          Скасувати
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ВКЛАДКА 2: РОБОЧІ ЗОНИ */}
-      {activeTab === "workspaces" && (
-        <div style={styles.contentGrid}>
-          <div style={styles.card}>
-            <h3>Створити робочу зону (Admin)</h3>
-            <form onSubmit={handleCreateWorkspace}>
-              <label style={styles.label}>Тип кімнати:</label>
-              <select
-                value={newWorkspace.roomType}
-                onChange={(e) =>
-                  setNewWorkspace({ ...newWorkspace, roomType: e.target.value })
-                }
-                style={styles.input}
-              >
-                <option value="Small">Small (2-4 місця)</option>
-                <option value="Medium">Medium (5-8 місць)</option>
-                <option value="Big">Big (9-12 місць)</option>
-                <option value="Large">Large (13-15 місць)</option>
-              </select>
-
-              <label
+              <form
+                onSubmit={handleCreateBooking}
                 style={{
                   display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  marginBottom: "1rem",
+                  flexDirection: "column",
+                  gap: "0.9rem",
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={newWorkspace.isActive}
-                  onChange={(e) =>
-                    setNewWorkspace({
-                      ...newWorkspace,
-                      isActive: e.target.checked,
-                    })
-                  }
-                />
-                Активна для бронювань
-              </label>
+                <div>
+                  <label style={ui.label}>Дата та час початку</label>
+                  <input
+                    type="datetime-local"
+                    value={newBooking.bookingDate}
+                    onChange={(e) =>
+                      setNewBooking({
+                        ...newBooking,
+                        bookingDate: e.target.value,
+                      })
+                    }
+                    required
+                    style={ui.input}
+                  />
+                </div>
 
-              <button type="submit" style={styles.primaryBtn}>
-                Додати кімнату
-              </button>
-            </form>
-          </div>
-
-          <div style={styles.card}>
-            <h3>Список робочих зон</h3>
-            <div style={styles.grid}>
-              {workspaces.map((ws) => (
-                <div key={ws.id} style={styles.itemCard}>
-                  <h4>Кімната: {ws.roomType}</h4>
-                  <p>Статус: {ws.isActive ? "🟢 Активна" : "🔴 Вимкнена"}</p>
-                  <p>
-                    Зайнятих слотів: {ws.createdAt ? ws.createdAt.length : 0}
-                  </p>
-                  <small style={{ color: "#666" }}>ID: {ws.id}</small>
-                  <div style={{ marginTop: "0.75rem" }}>
-                    <button
-                      onClick={() => handleDeleteWorkspace(ws.id)}
-                      style={styles.smallDangerBtn}
-                    >
-                      Видалити
-                    </button>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "0.75rem",
+                  }}
+                >
+                  <div>
+                    <label style={ui.label}>Час (хвилин)</label>
+                    <input
+                      type="number"
+                      min="15"
+                      step="15"
+                      value={newBooking.timeBooking}
+                      onChange={(e) =>
+                        setNewBooking({
+                          ...newBooking,
+                          timeBooking: e.target.value,
+                        })
+                      }
+                      required
+                      style={ui.input}
+                    />
+                  </div>
+                  <div>
+                    <label style={ui.label}>Осіб (2-15)</label>
+                    <input
+                      type="number"
+                      min="2"
+                      max="15"
+                      value={newBooking.residentMaxCount}
+                      onChange={(e) =>
+                        setNewBooking({
+                          ...newBooking,
+                          residentMaxCount: e.target.value,
+                        })
+                      }
+                      required
+                      style={ui.input}
+                    />
                   </div>
                 </div>
-              ))}
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "0.75rem",
+                  }}
+                >
+                  <div>
+                    <label style={ui.label}>Ім'я</label>
+                    <input
+                      type="text"
+                      placeholder="Олексій"
+                      value={newBooking.residentName}
+                      onChange={(e) =>
+                        setNewBooking({
+                          ...newBooking,
+                          residentName: e.target.value,
+                        })
+                      }
+                      required
+                      style={ui.input}
+                    />
+                  </div>
+                  <div>
+                    <label style={ui.label}>Прізвище</label>
+                    <input
+                      type="text"
+                      placeholder="Шевченко"
+                      value={newBooking.residentSurName}
+                      onChange={(e) =>
+                        setNewBooking({
+                          ...newBooking,
+                          residentSurName: e.target.value,
+                        })
+                      }
+                      required
+                      style={ui.input}
+                    />
+                  </div>
+                </div>
+
+                <button type="submit" style={ui.btnPrimary}>
+                  Підтвердити бронювання
+                </button>
+              </form>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* ВКЛАДКА 3: РЕЗИДЕНТИ */}
-      {activeTab === "residents" && (
-        <div style={styles.contentGrid}>
-          <div style={styles.card}>
-            <h3>Додати резидента</h3>
-            <form onSubmit={handleCreateResident}>
-              <label style={styles.label}>Ім'я:</label>
-              <input
-                type="text"
-                value={newResident.name}
-                onChange={(e) =>
-                  setNewResident({ ...newResident, name: e.target.value })
-                }
-                required
-                style={styles.input}
-              />
+            <div style={ui.card}>
+              <h3 style={ui.cardTitle}>Журнал бронювань</h3>
+              <p style={ui.cardDesc}>Усі заплановані та підтверджені візити</p>
 
-              <label style={styles.label}>Прізвище:</label>
-              <input
-                type="text"
-                value={newResident.surName}
-                onChange={(e) =>
-                  setNewResident({ ...newResident, surName: e.target.value })
-                }
-                required
-                style={styles.input}
-              />
+              {bookings.length === 0 ? (
+                <div style={ui.emptyState}>Немає активних бронювань</div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={ui.table}>
+                    <thead>
+                      <tr>
+                        <th>Резидент</th>
+                        <th>Дата та час</th>
+                        <th>Тривалість</th>
+                        <th>Осіб</th>
+                        <th>До сплати</th>
+                        <th style={{ textAlign: "right" }}>Дії</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bookings.map((b) => (
+                        <tr key={b.id}>
+                          <td style={{ fontWeight: 600 }}>
+                            {b.residentName} {b.residentSurName}
+                          </td>
+                          <td style={{ color: "var(--text-muted)" }}>
+                            {new Date(b.bookingDate).toLocaleString([], {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })}
+                          </td>
+                          <td>{b.timeBooking} хв.</td>
+                          <td>{b.residentMaxCount}</td>
+                          <td>
+                            <span style={ui.priceTag}>{b.totalPrice} ₴</span>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <button
+                              onClick={() => handleDeleteBooking(b.id)}
+                              style={ui.btnCancelSmall}
+                            >
+                              Скасувати
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
-              <label style={styles.label}>Тип членства:</label>
-              <select
-                value={newResident.type}
-                onChange={(e) =>
-                  setNewResident({ ...newResident, type: e.target.value })
-                }
-                style={styles.input}
+        {/* Вкладка 2: Робочі зони */}
+        {activeTab === "workspaces" && (
+          <>
+            <div style={ui.card}>
+              <h3 style={ui.cardTitle}>Нова локація</h3>
+              <p style={ui.cardDesc}>
+                Тільки для користувачів із правами адміністратора
+              </p>
+
+              <form
+                onSubmit={handleCreateWorkspace}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "1rem",
+                }}
               >
-                <option value="Standard">Standard</option>
-                <option value="VIP">VIP (знижка 20%)</option>
-              </select>
+                <div>
+                  <label style={ui.label}>Розмір та місткість</label>
+                  <select
+                    value={newWorkspace.roomType}
+                    onChange={(e) =>
+                      setNewWorkspace({
+                        ...newWorkspace,
+                        roomType: e.target.value,
+                      })
+                    }
+                    style={ui.input}
+                  >
+                    <option value="Small">Small (2–4 місця)</option>
+                    <option value="Medium">Medium (5–8 місць)</option>
+                    <option value="Big">Big (9–12 місць)</option>
+                    <option value="Large">Large (13–15 місць)</option>
+                  </select>
+                </div>
 
-              <button type="submit" style={styles.primaryBtn}>
-                Зберегти резидента
-              </button>
-            </form>
-          </div>
+                <label style={ui.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={newWorkspace.isActive}
+                    onChange={(e) =>
+                      setNewWorkspace({
+                        ...newWorkspace,
+                        isActive: e.target.checked,
+                      })
+                    }
+                    style={{
+                      width: "18px",
+                      height: "18px",
+                      accentColor: "var(--primary)",
+                    }}
+                  />
+                  <span>Готова до експлуатації</span>
+                </label>
 
-          <div style={styles.card}>
-            <h3>Список резидентів</h3>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th>Ім'я та Прізвище</th>
-                  <th>Тип підписки</th>
-                  <th>Дії</th>
-                </tr>
-              </thead>
-              <tbody>
-                {residents.map((r) => (
-                  <tr key={r.id}>
-                    <td>
-                      {r.name} {r.surName}
-                    </td>
-                    <td>
-                      <b>{r.type}</b>
-                    </td>
-                    <td>
+                <button type="submit" style={ui.btnPrimary}>
+                  Створити зону
+                </button>
+              </form>
+            </div>
+
+            <div style={ui.card}>
+              <h3 style={ui.cardTitle}>Доступні зали</h3>
+              <p style={ui.cardDesc}>
+                Поточний статус доступності робочих місць
+              </p>
+
+              <div style={ui.gridCards}>
+                {workspaces.map((ws) => (
+                  <div key={ws.id} style={ui.roomCard}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span style={ui.roomBadge}>{ws.roomType}</span>
+                      <span
+                        style={
+                          ws.isActive ? ui.statusActive : ui.statusInactive
+                        }
+                      >
+                        {ws.isActive ? "Вільна" : "Неактивна"}
+                      </span>
+                    </div>
+
+                    <div style={{ margin: "1rem 0" }}>
+                      <div
+                        style={{
+                          fontSize: "0.85rem",
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        Заплановано сесій:
+                      </div>
+                      <div style={{ fontSize: "1.25rem", fontWeight: 700 }}>
+                        {ws.createdAt ? ws.createdAt.length : 0}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        borderTop: "1px solid #f1f5f9",
+                        paddingTop: "0.75rem",
+                      }}
+                    >
+                      <small
+                        style={{ color: "#94a3b8", fontFamily: "monospace" }}
+                      >
+                        {ws.id?.slice(-6)}
+                      </small>
                       <button
-                        onClick={() => handleDeleteResident(r.id)}
-                        style={styles.smallDangerBtn}
+                        onClick={() => handleDeleteWorkspace(ws.id)}
+                        style={ui.btnCancelSmall}
                       >
                         Видалити
                       </button>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Вкладка 3: Резиденти */}
+        {activeTab === "residents" && (
+          <>
+            <div style={ui.card}>
+              <h3 style={ui.cardTitle}>Новий резидент</h3>
+              <p style={ui.cardDesc}>
+                VIP-клієнти автоматично отримують 20% знижки
+              </p>
+
+              <form
+                onSubmit={handleCreateResident}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.9rem",
+                }}
+              >
+                <div>
+                  <label style={ui.label}>Ім'я</label>
+                  <input
+                    type="text"
+                    placeholder="Марія"
+                    value={newResident.name}
+                    onChange={(e) =>
+                      setNewResident({ ...newResident, name: e.target.value })
+                    }
+                    required
+                    style={ui.input}
+                  />
+                </div>
+
+                <div>
+                  <label style={ui.label}>Прізвище</label>
+                  <input
+                    type="text"
+                    placeholder="Коваленко"
+                    value={newResident.surName}
+                    onChange={(e) =>
+                      setNewResident({
+                        ...newResident,
+                        surName: e.target.value,
+                      })
+                    }
+                    required
+                    style={ui.input}
+                  />
+                </div>
+
+                <div>
+                  <label style={ui.label}>Тарифний план</label>
+                  <select
+                    value={newResident.type}
+                    onChange={(e) =>
+                      setNewResident({ ...newResident, type: e.target.value })
+                    }
+                    style={ui.input}
+                  >
+                    <option value="Standard">Standard (Базовий)</option>
+                    <option value="VIP">VIP (Знижка 20%)</option>
+                  </select>
+                </div>
+
+                <button type="submit" style={ui.btnPrimary}>
+                  Зберегти в базі
+                </button>
+              </form>
+            </div>
+
+            <div style={ui.card}>
+              <h3 style={ui.cardTitle}>База резидентів</h3>
+              <p style={ui.cardDesc}>Зареєстровані постійні відвідувачі</p>
+
+              {residents.length === 0 ? (
+                <div style={ui.emptyState}>Резидентів ще не додано</div>
+              ) : (
+                <table style={ui.table}>
+                  <thead>
+                    <tr>
+                      <th>Користувач</th>
+                      <th>Рівень</th>
+                      <th style={{ textAlign: "right" }}>Дії</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {residents.map((r) => (
+                      <tr key={r.id}>
+                        <td style={{ fontWeight: 600 }}>
+                          {r.name} {r.surName}
+                        </td>
+                        <td>
+                          <span
+                            style={
+                              r.type === "VIP" ? ui.badgeVip : ui.badgeStandard
+                            }
+                          >
+                            {r.type}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <button
+                            onClick={() => handleDeleteResident(r.id)}
+                            style={ui.btnCancelSmall}
+                          >
+                            Видалити
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </>
+        )}
+      </main>
     </div>
   );
 }
 
-// Прості стилі інтерфейсу
-const styles = {
-  container: {
-    maxWidth: "1200px",
+// ------------------ СТИЛІ ІНТЕРФЕЙСУ ------------------
+const ui = {
+  authPage: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "100vh",
+    padding: "1.5rem",
+  },
+  authBox: {
+    background: "var(--card-bg)",
+    backdropFilter: "blur(16px)",
+    border: "1px solid var(--card-border)",
+    borderRadius: "var(--radius-lg)",
+    boxShadow: "var(--shadow-lg)",
+    width: "100%",
+    maxWidth: "420px",
+    padding: "2.5rem",
+  },
+  logoArea: {
+    textAlign: "center",
+    marginBottom: "2rem",
+  },
+  logoBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "54px",
+    height: "54px",
+    borderRadius: "16px",
+    background: "var(--primary-light)",
+    fontSize: "1.75rem",
+    marginBottom: "0.75rem",
+  },
+  logoBadgeSmall: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "40px",
+    height: "40px",
+    borderRadius: "12px",
+    background: "var(--primary-light)",
+    fontSize: "1.25rem",
+  },
+  title: {
+    fontSize: "1.5rem",
+    fontWeight: 700,
+    letterSpacing: "-0.025em",
+    marginBottom: "0.25rem",
+  },
+  subtitle: {
+    color: "var(--text-muted)",
+    fontSize: "0.9rem",
+  },
+  layout: {
+    maxWidth: "1240px",
     margin: "0 auto",
     padding: "1.5rem",
-    fontFamily: "Segoe UI, sans-serif",
   },
-  header: {
+  navbar: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "1rem",
+    background: "var(--card-bg)",
+    backdropFilter: "blur(12px)",
+    border: "1px solid var(--card-border)",
+    padding: "1rem 1.5rem",
+    borderRadius: "var(--radius-lg)",
+    boxShadow: "var(--shadow-sm)",
+    marginBottom: "1.5rem",
   },
-  authContainer: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    height: "100vh",
-    backgroundColor: "#f0f2f5",
-    fontFamily: "sans-serif",
-  },
-  authCard: {
-    width: "380px",
-    padding: "2rem",
-    backgroundColor: "#fff",
-    borderRadius: "10px",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-  },
-  tabBar: {
+  navTabs: {
     display: "flex",
     gap: "0.5rem",
+    background: "rgba(255, 255, 255, 0.5)",
+    padding: "0.35rem",
+    borderRadius: "var(--radius-md)",
     marginBottom: "1.5rem",
-    borderBottom: "2px solid #ddd",
-    paddingBottom: "0.5rem",
+    border: "1px solid var(--card-border)",
+    width: "fit-content",
   },
-  tab: {
-    padding: "0.5rem 1rem",
+  navTab: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    padding: "0.6rem 1.15rem",
+    borderRadius: "8px",
     border: "none",
-    background: "none",
+    background: "transparent",
+    color: "var(--text-muted)",
+    fontWeight: 600,
+    fontSize: "0.9rem",
     cursor: "pointer",
-    fontSize: "1rem",
-    color: "#555",
+    transition: "all 0.2s ease",
   },
-  tabActive: {
-    padding: "0.5rem 1rem",
+  navTabActive: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    padding: "0.6rem 1.15rem",
+    borderRadius: "8px",
     border: "none",
-    background: "#007bff",
-    color: "#fff",
-    borderRadius: "4px",
+    background: "#ffffff",
+    color: "var(--primary)",
+    fontWeight: 700,
+    fontSize: "0.9rem",
+    boxShadow: "var(--shadow-sm)",
     cursor: "pointer",
-    fontSize: "1rem",
   },
-  contentGrid: {
+  counter: {
+    fontSize: "0.75rem",
+    padding: "0.15rem 0.45rem",
+    borderRadius: "12px",
+    background: "var(--primary-light)",
+    color: "var(--primary)",
+  },
+  mainGrid: {
     display: "grid",
-    gridTemplateColumns: "320px 1fr",
+    gridTemplateColumns: "360px 1fr",
     gap: "1.5rem",
+    alignItems: "start",
   },
   card: {
-    backgroundColor: "#fff",
-    padding: "1.25rem",
-    borderRadius: "8px",
-    border: "1px solid #e1e4e8",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+    background: "var(--card-bg)",
+    backdropFilter: "blur(12px)",
+    border: "1px solid var(--card-border)",
+    borderRadius: "var(--radius-lg)",
+    padding: "1.75rem",
+    boxShadow: "var(--shadow-sm)",
   },
-  input: {
-    width: "100%",
-    padding: "0.5rem",
-    marginBottom: "0.75rem",
-    borderRadius: "4px",
-    border: "1px solid #ccc",
-    boxSizing: "border-box",
+  cardTitle: {
+    fontSize: "1.15rem",
+    fontWeight: 700,
+    marginBottom: "0.25rem",
+  },
+  cardDesc: {
+    fontSize: "0.85rem",
+    color: "var(--text-muted)",
+    marginBottom: "1.25rem",
   },
   label: {
     display: "block",
-    marginBottom: "0.25rem",
-    fontWeight: "500",
-    fontSize: "0.9rem",
+    fontSize: "0.825rem",
+    fontWeight: 600,
+    color: "var(--text-main)",
+    marginBottom: "0.35rem",
   },
-  primaryBtn: {
+  input: {
     width: "100%",
-    padding: "0.6rem",
-    backgroundColor: "#28a745",
-    color: "#fff",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    fontWeight: "bold",
+    padding: "0.65rem 0.85rem",
+    borderRadius: "var(--radius-md)",
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    fontSize: "0.9rem",
+    color: "var(--text-main)",
+    outline: "none",
+    transition: "border-color 0.2s",
   },
-  secondaryBtn: {
-    padding: "0.5rem 1rem",
-    backgroundColor: "#6c757d",
-    color: "#fff",
-    border: "none",
-    borderRadius: "4px",
+  checkboxLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.6rem",
+    fontSize: "0.9rem",
+    fontWeight: 500,
     cursor: "pointer",
-    marginRight: "0.5rem",
+    userSelect: "none",
   },
-  dangerBtn: {
-    padding: "0.5rem 1rem",
-    backgroundColor: "#dc3545",
-    color: "#fff",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-  },
-  smallDangerBtn: {
-    padding: "0.25rem 0.5rem",
-    backgroundColor: "#dc3545",
-    color: "#fff",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    fontSize: "0.85rem",
-  },
-  link: { color: "#007bff", cursor: "pointer", textDecoration: "underline" },
-  alert: {
+  btnPrimary: {
     padding: "0.75rem",
-    marginBottom: "1rem",
-    borderRadius: "4px",
-    textAlign: "center",
-    fontWeight: "bold",
+    background: "var(--primary)",
+    color: "#ffffff",
+    fontWeight: 600,
+    fontSize: "0.925rem",
+    border: "none",
+    borderRadius: "var(--radius-md)",
+    cursor: "pointer",
+    boxShadow: "0 4px 12px rgba(79, 70, 229, 0.25)",
+    transition: "background 0.2s",
   },
-  table: { width: "100%", borderCollapse: "collapse", marginTop: "0.5rem" },
-  grid: {
+  btnSecondary: {
+    padding: "0.55rem 0.95rem",
+    background: "#ffffff",
+    color: "var(--text-main)",
+    fontWeight: 600,
+    fontSize: "0.85rem",
+    border: "1px solid #cbd5e1",
+    borderRadius: "var(--radius-md)",
+    cursor: "pointer",
+  },
+  btnDangerOutline: {
+    padding: "0.55rem 0.95rem",
+    background: "transparent",
+    color: "var(--danger)",
+    fontWeight: 600,
+    fontSize: "0.85rem",
+    border: "1px solid var(--danger)",
+    borderRadius: "var(--radius-md)",
+    cursor: "pointer",
+  },
+  btnCancelSmall: {
+    padding: "0.35rem 0.75rem",
+    background: "var(--danger-light)",
+    color: "var(--danger)",
+    fontWeight: 600,
+    fontSize: "0.775rem",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+  },
+  switchMode: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "0.5rem",
+    marginTop: "1.5rem",
+    fontSize: "0.875rem",
+    color: "var(--text-muted)",
+  },
+  linkBtn: {
+    background: "none",
+    border: "none",
+    color: "var(--primary)",
+    fontWeight: 700,
+    cursor: "pointer",
+    textDecoration: "underline",
+  },
+  toast: {
+    padding: "0.85rem 1.25rem",
+    borderRadius: "var(--radius-md)",
+    marginBottom: "1.25rem",
+    fontWeight: 600,
+    fontSize: "0.9rem",
+    display: "flex",
+    alignItems: "center",
+    boxShadow: "var(--shadow-sm)",
+  },
+  toastOk: {
+    background: "var(--success-light)",
+    color: "#065f46",
+    border: "1px solid #a7f3d0",
+  },
+  toastErr: {
+    background: "var(--danger-light)",
+    color: "#991b1b",
+    border: "1px solid #fecaca",
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "separate",
+    borderSpacing: "0 0.5rem",
+    textAlign: "left",
+    fontSize: "0.875rem",
+  },
+  priceTag: {
+    background: "var(--success-light)",
+    color: "var(--success)",
+    padding: "0.2rem 0.6rem",
+    borderRadius: "6px",
+    fontWeight: 700,
+  },
+  badgeVip: {
+    background: "#fef3c7",
+    color: "#b45309",
+    padding: "0.2rem 0.6rem",
+    borderRadius: "12px",
+    fontSize: "0.75rem",
+    fontWeight: 700,
+  },
+  badgeStandard: {
+    background: "#f1f5f9",
+    color: "#475569",
+    padding: "0.2rem 0.6rem",
+    borderRadius: "12px",
+    fontSize: "0.75rem",
+    fontWeight: 600,
+  },
+  gridCards: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
     gap: "1rem",
-    marginTop: "0.5rem",
   },
-  itemCard: {
-    padding: "1rem",
-    border: "1px solid #ddd",
-    borderRadius: "6px",
-    backgroundColor: "#fafafa",
+  roomCard: {
+    background: "#ffffff",
+    border: "1px solid #f1f5f9",
+    borderRadius: "var(--radius-md)",
+    padding: "1.25rem",
+    boxShadow: "var(--shadow-sm)",
+  },
+  roomBadge: {
+    fontSize: "0.85rem",
+    fontWeight: 700,
+    color: "var(--primary)",
+  },
+  statusActive: {
+    background: "var(--success-light)",
+    color: "var(--success)",
+    fontSize: "0.75rem",
+    fontWeight: 700,
+    padding: "0.2rem 0.5rem",
+    borderRadius: "10px",
+  },
+  statusInactive: {
+    background: "#f1f5f9",
+    color: "#94a3b8",
+    fontSize: "0.75rem",
+    fontWeight: 600,
+    padding: "0.2rem 0.5rem",
+    borderRadius: "10px",
+  },
+  emptyState: {
+    padding: "2.5rem",
+    textAlign: "center",
+    color: "var(--text-muted)",
+    fontSize: "0.9rem",
+    border: "2px dashed #cbd5e1",
+    borderRadius: "var(--radius-md)",
   },
 };
-
-export default App;
