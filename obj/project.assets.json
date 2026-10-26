@@ -1862,11 +1862,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "E:\\indpr\\RestApi\\MyTodoApi.csproj",
+      "projectUniqueName": "E:\\indpr\\RestAPi\\MyTodoApi.csproj",
       "projectName": "MyTodoApi",
-      "projectPath": "E:\\indpr\\RestApi\\MyTodoApi.csproj",
+      "projectPath": "E:\\indpr\\RestAPi\\MyTodoApi.csproj",
       "packagesPath": "C:\\Users\\vlad\\.nuget\\packages\\",
-      "outputPath": "E:\\indpr\\RestApi\\obj\\",
+      "outputPath": "E:\\indpr\\RestAPi\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\vlad\\AppData\\Roaming\\NuGet\\NuGet.Config",

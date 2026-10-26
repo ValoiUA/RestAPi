@@ -102,3 +102,5 @@ E:\indpr\RestApi\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.OpenIdConnec
 E:\indpr\RestApi\bin\Debug\net8.0\Microsoft.IdentityModel.Tokens.dll
 E:\indpr\RestApi\bin\Debug\net8.0\System.Formats.Asn1.dll
 E:\indpr\RestApi\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll
+E:\indpr\RestAPi\bin\Debug\net8.0\coworking-client\package-lock.json
+E:\indpr\RestAPi\bin\Debug\net8.0\coworking-client\package.json
