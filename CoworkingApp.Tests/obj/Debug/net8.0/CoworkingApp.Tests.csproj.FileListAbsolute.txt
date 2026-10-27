@@ -103,3 +103,4 @@ C:\Vlad\МІА\RestApi\CoworkingApp.Tests\obj\Debug\net8.0\refint\CoworkingApp.T
 C:\Vlad\МІА\RestApi\CoworkingApp.Tests\obj\Debug\net8.0\CoworkingApp.Tests.pdb
 C:\Vlad\МІА\RestApi\CoworkingApp.Tests\obj\Debug\net8.0\CoworkingApp.Tests.genruntimeconfig.cache
 C:\Vlad\МІА\RestApi\CoworkingApp.Tests\obj\Debug\net8.0\ref\CoworkingApp.Tests.dll
+C:\Vlad\МІА\RestApi\CoworkingApp.Tests\obj\Debug\net8.0\CoworkingApp.Tests.sourcelink.json

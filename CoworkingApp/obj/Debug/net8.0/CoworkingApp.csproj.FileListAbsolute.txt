@@ -12,3 +12,4 @@ C:\Vlad\МІА\RestApi\CoworkingApp\obj\Debug\net8.0\refint\CoworkingApp.dll
 C:\Vlad\МІА\RestApi\CoworkingApp\obj\Debug\net8.0\CoworkingApp.pdb
 C:\Vlad\МІА\RestApi\CoworkingApp\obj\Debug\net8.0\CoworkingApp.genruntimeconfig.cache
 C:\Vlad\МІА\RestApi\CoworkingApp\obj\Debug\net8.0\ref\CoworkingApp.dll
+C:\Vlad\МІА\RestApi\CoworkingApp\obj\Debug\net8.0\CoworkingApp.sourcelink.json
